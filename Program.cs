@@ -1,4 +1,5 @@
-﻿using NAudio.Midi;
+﻿using System.Collections;
+using NAudio.Midi;
 
 class Program
 {
@@ -10,53 +11,52 @@ class Program
         // Load the MIDI file
         MidiFile midi = new MidiFile(midiPath, false);
 
-        // Create a new track for combining all tracks from the original MIDI
-        List<MidiEvent> combinedTrack = [];
+        // Initialize lists for piano events and other instrument events
+        List<MidiEvent> combinedEvents = [];
 
-        // Keep track of the last instrument set for each channel
-        Dictionary<int, int> channelInstruments = new Dictionary<int, int>();
+        // Extract MetaEvents (like tempo changes) and ensure they are applied to all tracks
+        IEnumerable<MidiEvent> metaEvents = 
+            from track in midi.Events 
+            from midiEvent in track 
+            where midiEvent.CommandCode == MidiCommandCode.MetaEvent 
+            select midiEvent.Clone();
 
-        // Default to piano (program number 0) for all channels initially
-        for (int i = 0; i < 16; i++) // MIDI channels are 0-15
-        {
-            channelInstruments[i] = 0; // Assuming 0 is the program number for Acoustic Grand Piano
-        }
+        // Add meta events to the combined events list first to ensure proper timing
+        combinedEvents.AddRange(metaEvents);
 
         // Iterate through each track in the MIDI file
-        foreach (IList<MidiEvent> trackEvents in midi.Events)
+        for (int trackIndex = 0; trackIndex < midi.Events.Count(); trackIndex++)
         {
-            // Iterate through each event in the track
+            IList<MidiEvent> trackEvents = midi.Events[trackIndex];
+
+            // Check if the event is from the piano tracks
+            bool isPianoTrack = trackIndex is 10 or 11;
+
             foreach (MidiEvent midiEvent in trackEvents)
             {
-                // Handle program change events
-                if (midiEvent is PatchChangeEvent pce)
-                {
-                    channelInstruments[pce.Channel] = pce.Patch;
-                }
+                // Ignore MetaEvents since they are already added
+                if (midiEvent.CommandCode == MidiCommandCode.MetaEvent) continue;
 
                 // Clone the event to avoid altering the original MIDI file's events
                 MidiEvent clonedEvent = midiEvent.Clone();
 
-                // Check if this is a NoteOn or NoteOff event, then assign the channel based on the instrument
-                if (clonedEvent.CommandCode is MidiCommandCode.NoteOn or MidiCommandCode.NoteOff)
-                {
-                    // If the last instrument set for this channel is a piano, assign to channel 1, else assign to channel 2
-                    clonedEvent.Channel = channelInstruments[clonedEvent.Channel] == 0 ? 1 : 2;
-                }
+                // Assign channel based on whether it's a piano track
+                clonedEvent.Channel = isPianoTrack ? 1 : 2;
 
-                combinedTrack.Add(clonedEvent);
+                // Add cloned event to the combined events list
+                combinedEvents.Add(clonedEvent);
             }
         }
 
-        // Sort the combined events by time
-        combinedTrack.Sort((e1, e2) => e1.AbsoluteTime.CompareTo(e2.AbsoluteTime));
+        // Sort all events by absolute time to maintain correct sequence
+        combinedEvents.Sort((e1, e2) => e1.AbsoluteTime.CompareTo(e2.AbsoluteTime));
 
-        // Create a new MIDI file with one track
-        MidiEventCollection singleTrackMidi = new MidiEventCollection(midi.FileFormat, midi.DeltaTicksPerQuarterNote);
-        singleTrackMidi.AddTrack(combinedTrack);
+        // Create a new MIDI event collection for the combined events
+        MidiEventCollection newMidiCollection = new MidiEventCollection(midi.FileFormat, midi.DeltaTicksPerQuarterNote);
+        newMidiCollection.AddTrack(combinedEvents); // Add combined events as a single track
 
         // Save the new MIDI file
-        MidiFile.Export(outputPath, singleTrackMidi);
+        MidiFile.Export(outputPath, newMidiCollection);
         Console.WriteLine("MIDI file saved to " + outputPath);
     }
 }
