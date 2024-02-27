@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using NAudio.Midi;
+﻿using NAudio.Midi;
 
 class Program
 {
@@ -30,7 +29,14 @@ class Program
             IList<MidiEvent> trackEvents = midi.Events[trackIndex];
 
             // Check if the event is from the piano tracks
-            bool isPianoTrack = trackIndex is 10 or 11;
+            bool isPianoTrack = false;
+            if (trackEvents.FirstOrDefault() is TextEvent textEvent)
+            {
+                if (textEvent.Text.Contains("piano", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    isPianoTrack = true;
+                }
+            }
 
             foreach (MidiEvent midiEvent in trackEvents)
             {
