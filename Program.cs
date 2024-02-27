@@ -21,7 +21,11 @@ class Program
             {
                 // Clone the event to avoid altering the original MIDI file's events
                 MidiEvent clonedEvent = midiEvent.Clone();
-                clonedEvent.Channel = 1;
+                // Set the channel to 1; you might not want to do this for MetaEvents like tempo changes
+                if (clonedEvent.CommandCode != MidiCommandCode.MetaEvent)
+                {
+                    clonedEvent.Channel = 1; // Be cautious here; this might not be necessary or correct for non-channel-specific events
+                }
                 combinedTrack.Add(clonedEvent);
             }
         }
