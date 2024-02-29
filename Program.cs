@@ -37,25 +37,12 @@ class Program
         {
             IList<MidiEvent> trackEvents = midi.Events[trackIndex];
 
-            // Check if the event is from the piano tracks
-            bool isPianoTrack = false;
-            if (trackEvents.FirstOrDefault() is TextEvent textEvent)
-            {
-                if (textEvent.Text.Contains("piano", StringComparison.InvariantCultureIgnoreCase))
-                {
-                    isPianoTrack = true;
-                }
-            }
-
             foreach (MidiEvent midiEvent in trackEvents)
             {
                 try
                 {
                     // Clone the event to avoid altering the original MIDI file's events
                     MidiEvent clonedEvent = midiEvent.Clone();
-
-                    // Assign channel based on whether it's a piano track
-                    clonedEvent.Channel = isPianoTrack ? 1 : 2;
 
                     // Add cloned event to the combined events list
                     combinedEvents.Add(clonedEvent);
